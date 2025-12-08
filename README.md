@@ -1,4 +1,4 @@
-# SPA Habits Backend
+# SPA Habits Backend 2
 
 Backend для SPA-трекера привычек (Django + DRF + JWT + Celery + Redis + Telegram + drf-spectacular).
 
