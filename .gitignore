@@ -28,7 +28,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage
-htmlcov/
+# htmlcov is kept in repo to publish HTML report
 .tox/
 .nox/
 .coverage
@@ -61,8 +61,14 @@ media/
 staticfiles/
 
 # Celery
-celerybeat-schedule
+celerybeat-schedule*
 celerybeat.pid
+
+# Telegram polling offset
+.telegram_offset
+
+# Pytest SQLite DB
+test_db.sqlite3
 
 # Environments / secrets
 .env

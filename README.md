@@ -1,53 +1,153 @@
-# SPA Habits Backend 2
+# SPA Habits Backend
 
-Backend для SPA-трекера привычек (Django + DRF + JWT + Celery + Redis + Telegram + drf-spectacular).
+Backend для SPA‑трекера привычек (Django + DRF + JWT + Celery + Redis + Telegram + drf‑spectacular).
 
 ## Быстрый старт (локально)
 
-1) Создайте и активируйте виртуальное окружение (рекомендуется):
-   - Windows PowerShell
+1) Виртуальное окружение (рекомендуется)
+   - Windows PowerShell:
      ```powershell
      python -m venv .venv
      .venv\Scripts\Activate.ps1
      ```
 
-2) Установите зависимости:
+2) Зависимости
    ```bash
    pip install -r requirements.txt
    ```
 
-3) Подготовьте переменные окружения:
-   - Скопируйте `.env.example` в `.env` и при необходимости скорректируйте значения.
-   - В `.env` позже внесите реальные `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` (в Git не коммитятся).
+3) .env (пример минимальных значений)
+   Скопируйте `.env.example` в `.env` и задайте переменные:
+   ```env
+   DJANGO_SECRET_KEY=change-me
+   DEBUG=True
+   # Разрешим локальные хосты и доступ по 0.0.0.0
+   ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
 
-4) Примените миграции и запустите сервер:
-   ```bash
-   python manage.py migrate
-   python manage.py runserver
+   # PostgreSQL (пример для локальной БД SPA)
+   DATABASE_URL=postgresql://django_user:password123@127.0.0.1:5433/SPA
+
+   # Redis для Celery
+   REDIS_URL=redis://localhost:6379/0
+
+   # Telegram Bot (токен своего бота из @BotFather)
+   TELEGRAM_BOT_TOKEN=<ваш_токен>
+   TELEGRAM_BOT_USERNAME=<имя_бота>
+
+   # Пагинация API
+   PAGINATION_PAGE_SIZE=5
    ```
+   Примечание: под pytest проект автоматически использует SQLite, чтобы не требовать доступ к Postgres при тестах.
 
-5) Документация API:
-   - Swagger UI: `http://127.0.0.1:8000/api/docs/swagger/`
-   - ReDoc: `http://127.0.0.1:8000/api/docs/redoc/`
+4) Создайте БД и примените миграции
+   - Создайте базу данных `SPA` в PostgreSQL (через pgAdmin/psql) и убедитесь, что доступна по `127.0.0.1:5433`.
+   - Примените миграции:
+     ```bash
+     python manage.py migrate
+     ```
+
+5) Запустите сервер
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
+   Если видите DisallowedHost для `0.0.0.0`, добавьте `0.0.0.0` в `ALLOWED_HOSTS` или заходите по `http://127.0.0.1:8000/`.
+
+6) Документация API
+   - Swagger UI: `http://127.0.0.1:8000/api/schema/swagger-ui/`
+   - ReDoc: `http://127.0.0.1:8000/api/schema/redoc/`
    - OpenAPI схема: `http://127.0.0.1:8000/api/schema/`
 
-6) Аутентификация (JWT):
+7) Аутентификация (JWT)
    - Получить токен: `POST /api/auth/jwt/create/` с полями `username` и `password`.
    - Обновить токен: `POST /api/auth/jwt/refresh/`.
 
-## Celery и напоминания в Telegram (позже в курсе)
+## Telegram: привязка пользователя и рассылка напоминаний
 
-Celery/beat и интеграция с Telegram будут добавлены в следующих шагах (задачи для рассылки напоминаний). Для работы потребуется Redis (см. `REDIS_URL` в `.env`).
+В проекте бот используется для отправки уведомлений. Привязка аккаунта к боту — через команду `/link <код>`. Создание привычек через бота пока не реализовано (см. планы ниже), привычки создаются через админку или REST API.
 
-## Стек (по умолчанию)
+1) Убедитесь, что у бота нет webhook (для polling):
+   ```powershell
+   curl "https://api.telegram.org/bot<ВАШ_ТОКЕН>/deleteWebhook"
+   ```
 
-- Django 5, DRF, Simple JWT, drf-spectacular, django-cors-headers, django-environ
-- PostgreSQL (или SQLite локально), Redis
-- Celery + celery-beat
-- python-telegram-bot (либо Bot API запросы)
-- Пагинация: 5 элементов на страницу
+2) Создайте код привязки (через админку или командой):
+   ```powershell
+   python manage.py shell -c "from django.utils import timezone; from datetime import timedelta; from django.contrib.auth import get_user_model; from notifications.models import TelegramLinkToken; User=get_user_model(); u=User.objects.get(username='admin'); TelegramLinkToken.objects.create(user=u, code='ABC123', expires_at=timezone.now()+timedelta(minutes=30)); print('CODE=ABC123')"
+   ```
 
-## Статус
+3) Отправьте боту в Telegram:
+   ```
+   /link ABC123
+   ```
 
-- Сконфигурирован каркас проекта (настройки, URLs, JWT, CORS, Swagger/Redoc).
-- Дальше: модели и валидаторы привычек, CRUD эндпоинты, публичный список, Celery-напоминания, тесты ≥80%, Docker Compose.
+4) Обработайте апдейты (polling) и привяжите профиль:
+   ```bash
+   python manage.py telegram_poll_once
+   ```
+   При успехе бот ответит в чате, а в админке появится Telegram профиль с `chat_id`.
+
+5) Проверка отправки сообщения напрямую:
+   ```bash
+   python manage.py shell -c "from django.contrib.auth import get_user_model; from notifications.services import send_telegram_message; User=get_user_model(); u=User.objects.get(username='admin'); print(send_telegram_message(u, 'Тестовое сообщение'))"
+   ```
+
+## Напоминания (Celery + Redis)
+
+- Периодическая задача: `habits.tasks.check_and_notify_due_habits` (каждую минуту).
+- Для работы нужны процессы Celery и Redis.
+
+Запуск компонентов локально (в отдельных окнах):
+```bash
+# Веб‑сервер
+python manage.py runserver 0.0.0.0:8000
+
+# Celery worker
+celery -A habits_project worker -l info
+
+# Celery beat (расписание задач)
+celery -A habits_project beat -l info
+```
+
+Создайте непубличную привычку (is_public=False) для себя со временем на ближайшие 1–3 минуты — придёт напоминание в Telegram. Либо вызовите задачу вручную:
+```bash
+python manage.py shell -c "from habits.tasks import check_and_notify_due_habits; check_and_notify_due_habits()"
+```
+
+## Публичные привычки и их принятие
+
+- Список публичных привычек (доступен всем, с пагинацией):
+  - `GET /api/habits/public/`
+  - Фильтрация по подстроке в действии/месте: `?q=слово`
+
+- Принять публичный шаблон (создать себе копию):
+  - `POST /api/habits/public/{id}/adopt/` — только для аутентифицированных
+  - Возвращает созданный объект привычки пользователя (с `is_public=False`).
+  - Если шаблон (полезная привычка) ссылается на «приятную», сначала клонируется приятная, затем полезная связывается на неё.
+  - Любые клиентские поля игнорируются: владелец всегда `request.user`, `is_public` всегда `False`, `linked_habit` проставляется только на созданную копию «приятной» (если есть).
+
+- Свои привычки (закрытый CRUD):
+  - `GET/POST /api/habits/`
+  - `GET/PATCH/PUT/DELETE /api/habits/{id}/`
+
+## Сидинг публичных привычек
+
+Добавлена management-команда для наполнения базы публичными шаблонами от системного пользователя `public`.
+
+Запуск:
+
+```bash
+python manage.py seed_public_habits
+```
+
+Команда идемпотентна — повторный запуск не создаёт дублей существующих записей.
+
+## Напоминания (Celery + Telegram)
+
+— В модели `Habit` есть поля `last_notified_at`, `next_run_at`; расчёт следующего запуска учитывает время привычки и `periodicity_days`.
+— Есть небольшое «окно идемпотентности», чтобы избежать дублей при частых запусках.
+
+Токен бота Telegram и Redis настраиваются через `.env` (`TELEGRAM_BOT_TOKEN`, `REDIS_URL`). Привязка аккаунта — через `/link <код>` и management‑команду `telegram_poll_once` (см. раздел Telegram выше).
+
+## Планируемое улучшение: создание привычек через бота
+
+Сейчас бот используется для привязки и отправки напоминаний. Поддержка создания привычек через чат с ботом (например, команда `/habit ...` или пошаговый мастер `/newhabit`) будет добавлена отдельно.

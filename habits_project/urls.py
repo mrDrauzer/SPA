@@ -16,6 +16,7 @@ urlpatterns = [
 
     # Apps endpoints
     path('api/', include('habits.urls', namespace='habits')),
+    path('api/', include(('notifications.urls', 'notifications'), namespace='notifications')),
 
     # Schema & docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

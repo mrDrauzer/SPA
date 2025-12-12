@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -73,9 +74,20 @@ ASGI_APPLICATION = 'habits_project.asgi.application'
 
 
 # Database
-DATABASES = {
-    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-}
+# Force SQLite when running under pytest to avoid connecting to external Postgres.
+# Rationale: environment var PYTEST_CURRENT_TEST may be set too late on some setups,
+# so additionally detect pytest via loaded modules.
+if ('PYTEST_CURRENT_TEST' in os.environ) or any(m.startswith('pytest') for m in sys.modules.keys()):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': str(BASE_DIR / 'test_db.sqlite3'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': env.db('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+    }
 
 
 # Password validation
@@ -91,6 +103,10 @@ LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 USE_TZ = True
+
+# During pytest, force UTC timezone to avoid ambiguity when asserting hours in tests
+if ('PYTEST_CURRENT_TEST' in os.environ) or any(m.startswith('pytest') for m in sys.modules.keys()):
+    TIME_ZONE = 'UTC'
 
 
 STATIC_URL = 'static/'
@@ -137,6 +153,16 @@ CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = False
+
+# Celery Beat schedule
+from celery.schedules import crontab  # type: ignore
+CELERY_BEAT_SCHEDULE = {
+    'check-and-notify-due-habits': {
+        'task': 'habits.tasks.check_and_notify_due_habits',
+        'schedule': 60.0,  # every minute
+        # Alternatively: 'schedule': crontab(),
+    },
+}
 
 
 # Telegram

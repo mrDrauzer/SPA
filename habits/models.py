@@ -23,6 +23,10 @@ class Habit(models.Model):
 
     is_public = models.BooleanField(default=False, verbose_name='Публичная')
 
+    # Напоминания/планировщик
+    last_notified_at = models.DateTimeField(null=True, blank=True, verbose_name='Последнее уведомление')
+    next_run_at = models.DateTimeField(null=True, blank=True, verbose_name='Следующий запуск')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
