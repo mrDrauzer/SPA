@@ -1,0 +1,111 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+*.egg
+MANIFEST
+pip-wheel-metadata/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+# htmlcov is kept in repo to publish HTML report
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+junit.xml
+
+# Type checking
+.mypy_cache/
+.pyre/
+.pytype/
+.pylint.d/
+
+# Translations
+*.mo
+*.pot
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+
+# Telegram polling offset
+.telegram_offset
+
+# Pytest SQLite DB
+test_db.sqlite3
+
+# Environments / secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+ENV/
+env/
+.direnv/
+.python-version
+
+# IDEs & editors
+.idea/
+*.iml
+.vscode/
+.history/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# Sphinx docs
+docs/_build/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Node (if frontend is co-located)
+node_modules/
+.npm/
+.parcel-cache/
