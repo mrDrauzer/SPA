@@ -53,32 +53,40 @@ Backend для SPA‑трекера привычек (Django + DRF + JWT + Celer
    Если видите DisallowedHost для `0.0.0.0`, добавьте `0.0.0.0` в `ALLOWED_HOSTS` или заходите по `http://127.0.0.1:8000/`.
 
 6) Документация API
-   - Swagger UI: `http://127.0.0.1:8000/api/schema/swagger-ui/`
-   - ReDoc: `http://127.0.0.1:8000/api/schema/redoc/`
+   - Swagger UI: `http://127.0.0.1:8000/api/docs/swagger/`
+   - ReDoc: `http://127.0.0.1:8000/api/docs/redoc/`
    - OpenAPI схема: `http://127.0.0.1:8000/api/schema/`
 
-7) Аутентификация (JWT)
+7) Аутентификация (JWT) и Users API
    - Получить токен: `POST /api/auth/jwt/create/` с полями `username` и `password`.
    - Обновить токен: `POST /api/auth/jwt/refresh/`.
 
+   Users API:
+   - Регистрация: `POST /api/users/register/`
+     - Поля: `username`, `email` (обязателен, уникален), `password`, `password2`, опц. `first_name`, `last_name`.
+   - Профиль: `GET /api/users/me/` (JWT), частичное обновление: `PATCH /api/users/me/` (поля: `email`, `first_name`, `last_name`).
+   - Смена пароля: `POST /api/users/change-password/` (JWT; поля: `old_password`, `new_password`).
+   - Статус привязки Telegram: `GET /api/users/telegram/` (JWT) → `{ linked: true/false, ... }`.
+
 ## Telegram: привязка пользователя и рассылка напоминаний
 
-В проекте бот используется для отправки уведомлений. Привязка аккаунта к боту — через команду `/link <код>`. Создание привычек через бота пока не реализовано (см. планы ниже), привычки создаются через админку или REST API.
+В проекте бот используется для отправки уведомлений. Привязка аккаунта к боту — через одноразовый код привязки. Создание привычек через бота пока не реализовано (см. планы ниже), привычки создаются через админку или REST API.
 
 1) Убедитесь, что у бота нет webhook (для polling):
    ```powershell
    curl "https://api.telegram.org/bot<ВАШ_ТОКЕН>/deleteWebhook"
    ```
 
-2) Создайте код привязки (через админку или командой):
+2) Сгенерируйте код привязки через API (рекомендуется):
+   - Запрос: `POST /api/telegram/link/` с заголовком `Authorization: Bearer <JWT>`.
+   - Ответ: `{ "code": "<код>", "expires_at": <ISO>, "tme_link": "https://t.me/<bot>?start=<код>" (если передать `?bot=<bot_username>` в запросе) }`.
+
+   Альтернатива (через Django shell для отладки):
    ```powershell
-   python manage.py shell -c "from django.utils import timezone; from datetime import timedelta; from django.contrib.auth import get_user_model; from notifications.models import TelegramLinkToken; User=get_user_model(); u=User.objects.get(username='admin'); TelegramLinkToken.objects.create(user=u, code='ABC123', expires_at=timezone.now()+timedelta(minutes=30)); print('CODE=ABC123')"
+   python manage.py shell -c "from django.utils import timezone; from datetime import timedelta; from django.contrib.auth import get_user_model; from notifications.models import TelegramLinkToken; User=get_user_model(); u=User.objects.get(username='admin'); t=TelegramLinkToken.objects.create(user=u, code='ABC123', expires_at=timezone.now()+timedelta(minutes=30)); print('CODE='+t.code)"
    ```
 
-3) Отправьте боту в Telegram:
-   ```
-   /link ABC123
-   ```
+3) Отправьте боту в Telegram команду со сгенерированным кодом (клиент может использовать `/start <код>` или `/link <код>` — зависит от логики бота).
 
 4) Обработайте апдейты (polling) и привяжите профиль:
    ```bash
